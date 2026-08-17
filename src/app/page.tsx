@@ -68,7 +68,7 @@ export default function Home() {
     const next = { zip, radius };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     setLocation(next);
-    setFilters((current) => ({ ...current, radius }));
+    setFilters({ datePreset: "all", radius, price: "all", query: "" });
   };
 
   const visible = useMemo(
