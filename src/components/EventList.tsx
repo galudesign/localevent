@@ -31,7 +31,7 @@ function EventRow({ event }: { event: EventItem }) {
       <div className="min-w-0 flex-1">
         <h3 className="truncate font-semibold text-slate-900">{event.title}</h3>
         <p className="mt-0.5 text-sm text-slate-600">
-          {formatEventDate(event.startDate)}
+          {formatEventDate(event.startDate, event.hasTime)}
           {event.venueName ? ` · ${event.venueName}` : ""}
           {event.city ? ` · ${event.city}` : ""}
         </p>

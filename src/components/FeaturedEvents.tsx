@@ -57,7 +57,7 @@ function FeaturedCard({ event, large }: { event: EventItem; large: boolean }) {
           {event.title}
         </h3>
         <p className="mt-1 text-sm text-slate-200">
-          {formatEventDate(event.startDate)}
+          {formatEventDate(event.startDate, event.hasTime)}
           {event.venueName ? ` · ${event.venueName}` : ""}
         </p>
       </div>

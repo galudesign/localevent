@@ -41,7 +41,8 @@ export function normalizeEvent(
 ): EventItem | null {
   const title = clean(str(node.name));
   const url = str(node.url);
-  const startDate = toIso(str(node.startDate));
+  const rawStart = str(node.startDate);
+  const startDate = toIso(rawStart);
   if (!title || !url || !startDate) return null;
 
   const place = obj(node.location);
@@ -59,6 +60,7 @@ export function normalizeEvent(
     imageUrl: str(node.image),
     startDate,
     endDate: toIso(str(node.endDate)),
+    hasTime: rawStart !== null && rawStart.includes("T"),
     venueName: place ? clean(str(place.name)) || null : null,
     city: address ? clean(str(address.addressLocality)) || null : null,
     state: address ? clean(str(address.addressRegion)) || null : null,

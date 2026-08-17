@@ -122,6 +122,7 @@ export function communityEvents(horizonDays = 120): EventItem[] {
         imageUrl: series.imageUrl,
         startDate: start.toISOString(),
         endDate: end.toISOString(),
+        hasTime: true,
         venueName: series.venueName,
         city: series.city,
         state: series.state,

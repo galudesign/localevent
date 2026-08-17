@@ -22,6 +22,7 @@ function dedupe(events: EventItem[]): EventItem[] {
     const merged: EventItem = {
       ...existing,
       imageUrl: existing.imageUrl ?? event.imageUrl,
+      hasTime: existing.hasTime || event.hasTime,
       description:
         existing.description.length >= event.description.length
           ? existing.description

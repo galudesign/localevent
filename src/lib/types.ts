@@ -8,6 +8,8 @@ export interface EventItem {
   imageUrl: string | null;
   startDate: string;
   endDate: string | null;
+  /** False when the source only published a calendar day, no clock time. */
+  hasTime: boolean;
   venueName: string | null;
   city: string | null;
   state: string | null;
