@@ -1,101 +1,169 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import EventList from "@/components/EventList";
+import FeaturedEvents from "@/components/FeaturedEvents";
+import Filters, { FilterState } from "@/components/Filters";
+import ZipSetup from "@/components/ZipSetup";
+import { applyFilters } from "@/lib/filter";
+import { EventsResponse } from "@/lib/types";
+
+const STORAGE_KEY = "local-events:location";
+
+interface Location {
+  zip: string;
+  radius: number;
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [location, setLocation] = useState<Location | null>(null);
+  const [ready, setReady] = useState(false);
+  const [data, setData] = useState<EventsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    datePreset: "all",
+    radius: 25,
+    price: "all",
+    query: "",
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Location;
+        setLocation(parsed);
+        setFilters((current) => ({ ...current, radius: parsed.radius }));
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+    setReady(true);
+  }, []);
+
+  const load = useCallback(async (next: Location) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/events?zip=${next.zip}&radius=${next.radius}`,
+      );
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? "Failed to load events.");
+      setData(payload as EventsResponse);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load events.");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (location) void load(location);
+  }, [location, load]);
+
+  const chooseLocation = (zip: string, radius: number) => {
+    const next = { zip, radius };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    setLocation(next);
+    setFilters({ datePreset: "all", radius, price: "all", query: "" });
+  };
+
+  const visible = useMemo(
+    () => (data ? applyFilters(data.events, filters) : []),
+    [data, filters],
+  );
+  const featured = useMemo(
+    () => [...visible].sort((a, b) => b.popularity - a.popularity).slice(0, 3),
+    [visible],
+  );
+  const featuredIds = new Set(featured.map((event) => event.id));
+  const rest = visible.filter((event) => !featuredIds.has(event.id));
+
+  if (!ready) return null;
+
+  if (!location) {
+    return <ZipSetup onSubmit={chooseLocation} />;
+  }
+
+  return (
+    <main className="mx-auto max-w-6xl px-5 py-8">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+            Events near {data?.origin.city ?? location.zip}
+            {data?.origin.state ? `, ${data.origin.state}` : ""}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {location.zip} · searched within {location.radius} miles
+            {data ? ` · ${data.events.length} events found` : ""}
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void load(location)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+          >
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              window.localStorage.removeItem(STORAGE_KEY);
+              setLocation(null);
+              setData(null);
+            }}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+          >
+            Change location
+          </button>
+        </div>
+      </header>
+
+      {loading && (
+        <div className="grid gap-4 md:grid-cols-5">
+          <div className="h-96 animate-pulse rounded-2xl bg-slate-200 md:col-span-3" />
+          <div className="grid gap-4 md:col-span-2">
+            <div className="h-44 animate-pulse rounded-2xl bg-slate-200" />
+            <div className="h-44 animate-pulse rounded-2xl bg-slate-200" />
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+          {error}
+        </p>
+      )}
+
+      {!loading && data && (
+        <div className="space-y-8">
+          <FeaturedEvents events={featured} />
+
+          <section className="space-y-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              All events ({visible.length})
+            </h2>
+            <Filters
+              state={filters}
+              maxRadius={location.radius}
+              onChange={setFilters}
+            />
+            <EventList events={rest} />
+          </section>
+
+          {data.warnings.length > 0 && (
+            <ul className="text-xs text-slate-400">
+              {data.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </main>
   );
 }
