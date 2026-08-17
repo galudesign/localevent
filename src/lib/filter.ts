@@ -1,6 +1,12 @@
 import { DatePreset, FilterState } from "@/components/Filters";
 import { EventItem } from "./types";
 
+function startOfDay(timestamp: number): number {
+  const date = new Date(timestamp);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
 function dateWindow(preset: DatePreset): [number, number] {
   const now = new Date();
   const start = now.getTime();
@@ -45,7 +51,14 @@ export function applyFilters(
   return events.filter((event) => {
     const startsAt = new Date(event.startDate).getTime();
     const endsAt = new Date(event.endDate ?? event.startDate).getTime();
-    if (endsAt < from || startsAt > to) return false;
+    // Match on the start day, so a Friday night that runs past midnight does
+    // not surface under Saturday. Genuinely multi-day events still count while
+    // they are running.
+    const multiDay = endsAt - startsAt > 24 * 60 * 60 * 1000;
+    const startsInWindow = startsAt >= startOfDay(from) && startsAt <= to;
+    const runsThroughWindow = multiDay && endsAt >= from && startsAt <= to;
+    if (endsAt < from) return false;
+    if (!startsInWindow && !runsThroughWindow) return false;
 
     if (
       event.distanceMiles !== null &&
